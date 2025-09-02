@@ -117,7 +117,7 @@ def webhook():
                         f"\n🔸 <b>{name}</b> ({symbol})"
                         f"\n📤 От: {shorten(from_addr)}"
                         f"\n📥 Кому: {shorten(to_addr)}"
-                        f"\n💰 Сумма: {amount_line}"
+                        f"\n💰 Кол-во: {amount_line}"
                         f"\n🔗 <a href='https://solscan.io/token/{mint}'>{mint}</a>\n"
                     )
 
