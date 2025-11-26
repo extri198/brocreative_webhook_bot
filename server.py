@@ -6,6 +6,7 @@ import json
 import time
 from requests.exceptions import RequestException, Timeout
 import logging
+from collections import OrderedDict
 
 load_dotenv()
 app = Flask(__name__)
@@ -75,6 +76,8 @@ LAST_COINGECKO_REQUEST = 0
 COINGECKO_RATE_LIMIT = 1.2  # seconds between requests (50 calls/minute)
 
 SOL_MINTS = {"So11111111111111111111111111111111111111112"}
+MAX_SIGNATURE_CACHE = 200
+PROCESSED_SIGNATURES = OrderedDict()
 
 def send_telegram_message(text):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -220,7 +223,16 @@ def webhook():
             tx_type = tx.get("type", "неизвестно")
             signature = tx.get("signature", "нет")
             logger.info(f"Processing tx: type={tx_type}, signature={signature}")
-            
+
+            # Skip already processed signatures to avoid duplicate Telegram messages
+            if signature and signature != "нет":
+                if signature in PROCESSED_SIGNATURES:
+                    logger.info(f"Skipping duplicate tx: signature={signature}")
+                    continue
+                PROCESSED_SIGNATURES[signature] = time.time()
+                if len(PROCESSED_SIGNATURES) > MAX_SIGNATURE_CACHE:
+                    PROCESSED_SIGNATURES.popitem(last=False)
+
             # Check if signer is in filtered list
             account_data = tx.get("accountData", [])
             if account_data:
@@ -321,7 +333,7 @@ def webhook():
                     msg += f"\n{sol_emoji} <b>Net SOL change:</b> {signer_sol_change:.6f} (~${sol_net_usd:.2f})"
                     # Add final SPL token destination address (to_addr) as code block
                     # if 'to_addr' in locals() and to_addr:
-                    #     msg += f"\n🏁 <b>Final SPL destination:</b> <code>{to_addr}</code>"
+                    #    msg += f"\n🏁 <b>Final SPL destination:</b> <code>{to_addr}</code>"
                     # Add copyable signer address
                     if signer_account:
                         msg += f"\n👤 <b>Signer:</b> <code>{signer_account}</code>"
@@ -369,7 +381,7 @@ def webhook():
                         f"\n🔸 <b>{name}</b> ({symbol})"
                         # f"\n📤 От: {shorten(from_addr)}"
                         # f"\n📥 Кому: {shorten(to_addr)}"
-                        # f"\n💰 Сумма: {amount_line}"
+                        f"\n💰 Сумма: {amount_line}"
                         f"\n<code>{mint}</code>\n"
                     )
 
